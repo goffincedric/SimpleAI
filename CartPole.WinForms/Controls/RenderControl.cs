@@ -2,15 +2,16 @@
 using System.Diagnostics;
 using System.Threading;
 using System.Windows.Forms;
+using CartPoleShared.Models;
+using CartPoleShared.Models.Environment;
 using CartPoleWinForms.Helpers;
-using CartPoleWinForms.Models;
 using DirectedAcyclicGraph.Models;
 using SkiaSharp;
 using SkiaSharp.Views.Desktop;
 
 namespace CartPoleWinForms.Controls;
 
-public sealed class RenderControl : SKControl
+public sealed class RenderControl : SKGLControl
 {
     public readonly CartPole CartPole;
     public List<List<DirectedNode>> SortedLayers { get; private set; }
@@ -18,7 +19,7 @@ public sealed class RenderControl : SKControl
     private readonly Stopwatch _stopwatch = new();
     private readonly Stopwatch _rotationStopwatch = new();
     private readonly Stopwatch _fpsStopwatch = new();
-    private const int TargetFrameRate = 60;
+    private const int TargetFrameRate = 1000;
     private double _fps = TargetFrameRate;
     private int _frameCount;
 
@@ -55,7 +56,7 @@ public sealed class RenderControl : SKControl
     public void SetSortedLayers(List<List<DirectedNode>> sortedLayers) =>
         SortedLayers = sortedLayers;
 
-    protected override void OnPaintSurface(SKPaintSurfaceEventArgs e)
+    protected override void OnPaintSurface(SKPaintGLSurfaceEventArgs e)
     {
         // Increase the frame count
         _frameCount++;
@@ -64,18 +65,18 @@ public sealed class RenderControl : SKControl
         var canvas = e.Surface.Canvas;
         canvas.Clear(SKColors.White);
 
-        // Draw the cart track
-        CanvasHelper.CartPole.DrawCartTrack(this, canvas);
-
-        // Draw the CartPole
-        CanvasHelper.CartPole.DrawCartPole(this, canvas);
-
-        // Draw the graph
-        CanvasHelper.AI.DrawGraph(this, canvas);
-
         // Update and draw the FPS counter
         UpdateFpsCounter();
         CanvasHelper.DrawFpsCounter(_fps, canvas);
+
+        // Draw the cart track
+        CanvasHelper.CartPoleDrawer.DrawCartTrack(this, canvas);
+
+        // Draw the CartPole
+        CanvasHelper.CartPoleDrawer.DrawCartPole(this, canvas);
+
+        // Draw the graph
+        CanvasHelper.AIDrawer.DrawGraph(this, canvas);
     }
 
     private void UpdateFpsCounter()

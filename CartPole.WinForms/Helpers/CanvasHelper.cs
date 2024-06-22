@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using CartPoleShared.Models;
+using CartPoleShared.Models.Environment;
 using CartPoleWinForms.Controls;
 using DirectedAcyclicGraph.Models;
 using SkiaSharp;
@@ -30,9 +32,13 @@ public static class CanvasHelper
         canvas.DrawText($"FPS: {fps}", fpsRect.Left + 5, fpsRect.Top + fpsPaint.TextSize, fpsPaint); // draw the FPS counter
     }
 
-    public static class CartPole
+    public static class CartPoleDrawer
     {
         private const float CartPoleYPos = 100; // y-axis position of the cart-pole relative to center of control
+        private static SKColor CartColor { get; set; } = new(81, 97, 114);
+        private static SKColor JointColor { get; set; } = new(40, 40, 40);
+        private static SKColor PoleColor { get; set; } = new(178, 149, 91);
+        private static SKColor TrackColor { get; set; } = SKColors.Black;
 
         public static void DrawCartTrack(RenderControl control, SKCanvas canvas)
         {
@@ -41,15 +47,11 @@ public static class CanvasHelper
             canvas.Translate((float)control.Width / 2, (float)control.Height / 2);
 
             // Draw a horizontal line as the track of the CartPole
-            var linePaint = new SKPaint
-            {
-                Color = control.CartPole.Track.Color,
-                IsAntialias = true
-            };
+            var linePaint = new SKPaint { Color = TrackColor, IsAntialias = true };
             canvas.DrawRect(
-                ConvertMetersToCoordinate((float)control.CartPole.Track.Length / 2 / -2),
+                ConvertMetersToPixels((float)control.CartPole.Track.Length / 2 / -2),
                 CartPoleYPos - 1,
-                ConvertMetersToCoordinate((float)control.CartPole.Track.Length / 2),
+                ConvertMetersToPixels((float)control.CartPole.Track.Length / 2),
                 2,
                 linePaint
             );
@@ -65,48 +67,58 @@ public static class CanvasHelper
             canvas.Translate((float)control.Width / 2, (float)control.Height / 2);
 
             // Draw the cart
-            var cartPaint = new SKPaint { Color = control.CartPole.Cart.Color, IsAntialias = true };
-            var cartRect = GetRectangle(
-                control.CartPole.X,
-                control.CartPole.Cart.Width,
-                control.CartPole.Cart.Height
-            ); // rectangle dimensions in meters
-            canvas.DrawRect(cartRect, cartPaint); // draw the cart
+            DrawCart(control.CartPole, canvas);
 
             // Draw the joint
-            var jointPaint = new SKPaint
-            {
-                Color = control.CartPole.Joint.Color,
-                IsAntialias = true
-            };
-            var jointPoint = new SKPoint(
-                ConvertMetersToCoordinate((float)control.CartPole.X),
-                CartPoleYPos
-            ); // joint point
-            canvas.DrawCircle(
-                jointPoint,
-                ConvertMetersToCoordinate(control.CartPole.Joint.Radius / 2),
-                jointPaint
-            ); // draw the joint
+            DrawJoint(control.CartPole, canvas);
 
-            // Draw the pole and rotate it
-            var polePaint = new SKPaint { Color = control.CartPole.Pole.Color, IsAntialias = true };
+            // Draw the pole
+            DrawPole(control.CartPole, canvas);
+
+            // Save the canvas state and revert translation
+            canvas.Restore();
+        }
+
+        private static void DrawCart(CartPole cartPole, SKCanvas canvas)
+        {
+            var cartPaint = new SKPaint { Color = CartColor, IsAntialias = true };
+            var cartRect = GetRectangle(cartPole.X, cartPole.Cart.Width, cartPole.Cart.Height); // rectangle dimensions in meters
+            canvas.DrawRect(cartRect, cartPaint); // draw the cart
+        }
+
+        private static void DrawJoint(CartPole cartPole, SKCanvas canvas)
+        {
+            var jointPaint = new SKPaint { Color = JointColor, IsAntialias = true };
+            var jointPoint = new SKPoint(ConvertMetersToPixels((float)cartPole.X), CartPoleYPos); // joint point
+            canvas.DrawCircle(jointPoint, ConvertMetersToPixels(cartPole.Pole.Width), jointPaint); // draw the joint
+        }
+
+        private static void DrawPole(CartPole cartPole, SKCanvas canvas)
+        {
+            var polePaint = new SKPaint { Color = PoleColor, IsAntialias = true };
             var poleRect = GetRectangle(
-                control.CartPole.X,
-                control.CartPole.Pole.Width,
-                control.CartPole.Pole.Height,
+                cartPole.X,
+                cartPole.Pole.Width,
+                cartPole.Pole.Height,
                 true
             ); // rectangle dimensions in meters
             canvas.Save();
             canvas.RotateDegrees(
-                (float)(control.CartPole.Pole.AngleRad * (180 / Math.PI)),
-                ConvertMetersToCoordinate((float)control.CartPole.X),
+                (float)(cartPole.Pole.AngleRadians * (180 / Math.PI)),
+                ConvertMetersToPixels((float)cartPole.X),
                 CartPoleYPos
             ); // rotate around the center of the rectangle
             canvas.DrawRect(poleRect, polePaint); // draw the pole
-            canvas.Restore();
-
-            // Save the canvas state and revert translation
+            // Draw a circle on top of the pole in the same color as the joint
+            var ballPoint = new SKPoint(
+                ConvertMetersToPixels((float)cartPole.X),
+                CartPoleYPos - ConvertMetersToPixels(cartPole.Pole.Height / 2)
+            ); // ball point
+            canvas.DrawCircle(
+                ballPoint,
+                ConvertMetersToPixels(cartPole.Pole.Width * 2),
+                new SKPaint { Color = new SKColor(171, 144, 199), IsAntialias = true }
+            ); // draw the ball
             canvas.Restore();
         }
 
@@ -125,14 +137,14 @@ public static class CanvasHelper
             bool onlyShowTopHalf = false
         )
         {
-            var left = ConvertMetersToCoordinate((float)x - width / 2);
-            var top = CartPoleYPos - ConvertMetersToCoordinate(height / 2);
-            var right = ConvertMetersToCoordinate((float)x + width / 2);
+            var left = ConvertMetersToPixels((float)x - width / 2);
+            var top = CartPoleYPos - ConvertMetersToPixels(height / 2);
+            var right = ConvertMetersToPixels((float)x + width / 2);
             float bottom;
             if (onlyShowTopHalf)
                 bottom = CartPoleYPos;
             else
-                bottom = CartPoleYPos + ConvertMetersToCoordinate(height / 2);
+                bottom = CartPoleYPos + ConvertMetersToPixels(height / 2);
 
             return new SKRect(left, top, right, bottom);
         }
@@ -141,17 +153,17 @@ public static class CanvasHelper
         /// Method that converts the meters to coordinates (x or y), to make 1 meter equal 200 pixels on screen.
         /// </summary>
         /// <returns></returns>
-        private static float ConvertMetersToCoordinate(float meters) => meters * 200;
+        private static float ConvertMetersToPixels(float meters) => meters * 200;
     }
 
-    public static class AI
+    public static class AIDrawer
     {
         private const int BorderPadding = 10;
 
         private const int LayerSpacing = 30;
         private const int NodeRadius = 7;
         private const int NodeSpacing = 10;
-        private const int EdgeWidth = 3;
+        private const int EdgeWidth = 2;
 
         public static void DrawGraph(RenderControl control, SKCanvas canvas)
         {
@@ -182,10 +194,10 @@ public static class CanvasHelper
             canvas.DrawRect(0, 0, backgroundWidth, backgroundHeight, backgroundPaint);
 
             // Draw the edges
-            DrawEdges(control.SortedLayers, canvas);
+            DrawEdges(control.SortedLayers, backgroundHeight, canvas);
 
             // Draw the nodes over the edges
-            DrawNodes(control.SortedLayers, canvas);
+            DrawNodes(control.SortedLayers, backgroundHeight, canvas);
 
             // Save the canvas state and revert translation
             canvas.Restore();
@@ -196,7 +208,12 @@ public static class CanvasHelper
         /// </summary>
         /// <param name="nodes">Sorted layers of nodes</param>
         /// <param name="canvas"></param>
-        private static void DrawNodes(List<List<DirectedNode>> nodes, SKCanvas canvas)
+        /// <param name="backgroundHeight"></param>
+        private static void DrawNodes(
+            List<List<DirectedNode>> nodes,
+            float backgroundHeight,
+            SKCanvas canvas
+        )
         {
             // Draw a circle for each node
             var nodePaint = new SKPaint { Color = new SKColor(40, 40, 40), IsAntialias = true };
@@ -210,26 +227,83 @@ public static class CanvasHelper
                     var nodeIndex = layer.IndexOf(node);
 
                     // Draw the node
-                    var nodePoint = GetNodePoint(layerIndex, nodeIndex);
+                    var nodePoint = GetNodePoint(
+                        layerIndex,
+                        nodeIndex,
+                        layer.Count,
+                        backgroundHeight
+                    );
                     canvas.DrawCircle(nodePoint, NodeRadius, nodePaint);
                 }
             }
         }
 
-        private static void DrawEdges(List<List<DirectedNode>> nodes, SKCanvas canvas)
+        private static void DrawEdges(
+            List<List<DirectedNode>> nodes,
+            int backgroundHeight,
+            SKCanvas canvas
+        )
         {
-            var edgePaint = new SKPaint { Color = new SKColor(80, 80, 80), IsAntialias = true };
+            var edgePaint = new SKPaint
+            {
+                Color = new SKColor(80, 80, 80),
+                IsAntialias = true,
+                StrokeWidth = EdgeWidth
+            };
+            // Loop over all layers
+            for (var layerIndex = 0; layerIndex < nodes.Count; layerIndex++)
+            {
+                // Loop over nodes in layer
+                var layer = nodes[layerIndex];
+                for (var nodeIndex = 0; nodeIndex < layer.Count; nodeIndex++)
+                {
+                    // Loop over children of node
+                    var node = layer[nodeIndex];
+                    var fromNodePoint = GetNodePoint(
+                        layerIndex,
+                        nodeIndex,
+                        layer.Count,
+                        backgroundHeight
+                    );
+                    foreach (var childNode in node.Children)
+                    {
+                        // Find the layer the child node belongs to
+                        var childLayerIndex = nodes.FindIndex(layer => layer.Contains(childNode));
+                        var childNodeLayer = nodes[childLayerIndex];
+                        var childNodeIndex = childNodeLayer.IndexOf(childNode);
+
+                        // Get the destination point of the edge
+                        var toNodePoint = GetNodePoint(
+                            childLayerIndex,
+                            childNodeIndex,
+                            childNodeLayer.Count,
+                            backgroundHeight
+                        );
+
+                        // Draw a line between the nodes
+                        canvas.DrawLine(fromNodePoint, toNodePoint, edgePaint);
+                    }
+                }
+            }
         }
 
-        private static SKPoint GetNodePoint(int layerIndex, int nodeIndex)
+        private static SKPoint GetNodePoint(
+            int layerIndex,
+            int nodeIndex,
+            int totalNodesInLayer,
+            float backgroundHeight
+        )
         {
             var nodeCenterX =
                 BorderPadding // Padding
                 + layerIndex * NodeRadius * 2 // Space for the nodes in the layers before current layer
                 + layerIndex * LayerSpacing // Spacing between layers
                 + NodeRadius; // Space for the node in the current layer
+
             var nodeCenterY =
-                BorderPadding // Padding
+                backgroundHeight / 2 // Center of the background
+                - (float)(totalNodesInLayer - 1) * NodeSpacing / 2 // Subtract half the total spacing between the nodes
+                - totalNodesInLayer * NodeRadius // Subtract half the total height of the nodes (radius is half of height of a node)
                 + nodeIndex * NodeRadius * 2 // Space for the nodes before the current node
                 + nodeIndex * NodeSpacing // Spacing between nodes
                 + NodeRadius; // Space for the current node

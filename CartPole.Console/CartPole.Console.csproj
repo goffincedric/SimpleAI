@@ -1,9 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
+        <OutputType>Exe</OutputType>
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <RootNamespace>CartPoleConsole</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
@@ -14,8 +16,9 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\CartPole.Physics\CartPole.Physics.csproj" />
       <ProjectReference Include="..\CartPole.Shared\CartPole.Shared.csproj" />
-      <ProjectReference Include="..\DirectedAcyclicGraph\DirectedAcyclicGraph.csproj" />
+      <ProjectReference Include="..\SimpleAI\SimpleAI.csproj" />
     </ItemGroup>
 
 </Project>

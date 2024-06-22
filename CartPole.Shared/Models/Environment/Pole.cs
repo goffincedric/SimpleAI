@@ -1,8 +1,6 @@
-﻿using SkiaSharp;
+﻿namespace CartPoleShared.Models.Environment;
 
-namespace CartPoleWinForms.Models;
-
-public class Pole(float width, float height, double angleRad, SKColor color)
+public class Pole(float width, float height, double angleRadians)
 {
     public float Width { get; } = width;
     public float Height { get; } = height;
@@ -10,7 +8,5 @@ public class Pole(float width, float height, double angleRad, SKColor color)
     /// <summary>
     /// Pole angle in radians. Index 2 in the state array of the physics model. Positive is clockwise.
     /// </summary>
-    public double AngleRad { get; set; } = angleRad;
-
-    public SKColor Color { get; } = color;
+    public double AngleRadians { get; set; } = angleRadians;
 }

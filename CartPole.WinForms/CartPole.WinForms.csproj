@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CartPole.Physics\CartPole.Physics.csproj" />
+    <ProjectReference Include="..\CartPole.Shared\CartPole.Shared.csproj" />
     <ProjectReference Include="..\DirectedAcyclicGraph\DirectedAcyclicGraph.csproj" />
   </ItemGroup>
 

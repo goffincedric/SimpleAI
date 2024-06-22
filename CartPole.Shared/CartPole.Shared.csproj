@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <RootNamespace>CartPoleShared</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\CartPole.Physics\CartPole.Physics.csproj" />
+      <ProjectReference Include="..\DirectedAcyclicGraph\DirectedAcyclicGraph.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="MemoryPack" Version="1.21.1" />
+    </ItemGroup>
+
+</Project>

@@ -6,7 +6,7 @@ internal class GraphTests
 {
     public static void Benchmark(string[] args)
     {
-        var graph = new DirectedAcyclicGraph.Models.DirectedAcyclicGraph();
+        var graph = new DirectedAcyclicGraph.Models.DirectedAcyclicGraph<DirectedNode>();
 
         // Node counts
         const int startNodesCount = 3;
@@ -15,15 +15,21 @@ internal class GraphTests
 
         // Add start, hidden and end nodes
         for (var i = 0; i < startNodesCount; i++)
-            graph.AddNode(new Node(i.ToString(), NodeType.Start), []);
+            graph.AddNode(
+                new DirectedNode(Guid.NewGuid(), i.ToString(), NodeType.Start, [], []),
+                []
+            );
         for (var i = startNodesCount; i < startNodesCount + hiddenNodesCount; i++)
-            graph.AddNode(new Node(i.ToString(), NodeType.Hidden), []);
+            graph.AddNode(
+                new DirectedNode(Guid.NewGuid(), i.ToString(), NodeType.Hidden, [], []),
+                []
+            );
         for (
             var i = startNodesCount + hiddenNodesCount;
             i < startNodesCount + hiddenNodesCount + endNodesCount;
             i++
         )
-            graph.AddNode(new Node(i.ToString(), NodeType.End), []);
+            graph.AddNode(new DirectedNode(Guid.NewGuid(), i.ToString(), NodeType.End, [], []), []);
 
         // Add graphs until max possible edges (Benchmark)
         var maxEdges = graph.GetMaxPossibleEdges();
@@ -55,17 +61,17 @@ internal class GraphTests
 
     public static void Test1(string[] args)
     {
-        var graph = new DirectedAcyclicGraph.Models.DirectedAcyclicGraph();
+        var graph = new DirectedAcyclicGraph.Models.DirectedAcyclicGraph<DirectedNode>();
 
-        var node1 = new Node(1.ToString(), NodeType.Start);
-        var node2 = new Node(2.ToString(), NodeType.Start);
-        var node3 = new Node(3.ToString(), NodeType.Start);
-        var node4 = new Node(4.ToString(), NodeType.Hidden);
-        var node5 = new Node(5.ToString(), NodeType.Hidden);
-        var node6 = new Node(6.ToString(), NodeType.Hidden);
-        var node7 = new Node(7.ToString(), NodeType.Hidden);
-        var node8 = new Node(8.ToString(), NodeType.End);
-        var node9 = new Node(9.ToString(), NodeType.End);
+        var node1 = new DirectedNode(Guid.NewGuid(), 1.ToString(), NodeType.Start, [], []);
+        var node2 = new DirectedNode(Guid.NewGuid(), 2.ToString(), NodeType.Start, [], []);
+        var node3 = new DirectedNode(Guid.NewGuid(), 3.ToString(), NodeType.Start, [], []);
+        var node4 = new DirectedNode(Guid.NewGuid(), 4.ToString(), NodeType.Hidden, [], []);
+        var node5 = new DirectedNode(Guid.NewGuid(), 5.ToString(), NodeType.Hidden, [], []);
+        var node6 = new DirectedNode(Guid.NewGuid(), 6.ToString(), NodeType.Hidden, [], []);
+        var node7 = new DirectedNode(Guid.NewGuid(), 7.ToString(), NodeType.Hidden, [], []);
+        var node8 = new DirectedNode(Guid.NewGuid(), 8.ToString(), NodeType.End, [], []);
+        var node9 = new DirectedNode(Guid.NewGuid(), 9.ToString(), NodeType.End, [], []);
 
         graph.AddNode(node1, [node5, node4]);
         graph.AddNode(node2, [node4, node6]);
@@ -97,25 +103,25 @@ internal class GraphTests
 
     public static void Test2(string[] args)
     {
-        var graph = new DirectedAcyclicGraph.Models.DirectedAcyclicGraph();
+        var graph = new DirectedAcyclicGraph.Models.DirectedAcyclicGraph<DirectedNode>();
 
-        var node1 = new Node(1.ToString(), NodeType.Start);
-        var node2 = new Node(2.ToString(), NodeType.Start);
-        var node3 = new Node(3.ToString(), NodeType.Start);
+        var node1 = new DirectedNode(Guid.NewGuid(), 1.ToString(), NodeType.Start, [], []);
+        var node2 = new DirectedNode(Guid.NewGuid(), 2.ToString(), NodeType.Start, [], []);
+        var node3 = new DirectedNode(Guid.NewGuid(), 3.ToString(), NodeType.Start, [], []);
 
-        var node4 = new Node(4.ToString(), NodeType.Hidden);
+        var node4 = new DirectedNode(Guid.NewGuid(), 4.ToString(), NodeType.Hidden, [], []);
 
-        var node5 = new Node(5.ToString(), NodeType.Hidden);
-        var node6 = new Node(6.ToString(), NodeType.Hidden);
+        var node5 = new DirectedNode(Guid.NewGuid(), 5.ToString(), NodeType.Hidden, [], []);
+        var node6 = new DirectedNode(Guid.NewGuid(), 6.ToString(), NodeType.Hidden, [], []);
 
-        var node7 = new Node(7.ToString(), NodeType.Hidden);
+        var node7 = new DirectedNode(Guid.NewGuid(), 7.ToString(), NodeType.Hidden, [], []);
 
-        var node8 = new Node(8.ToString(), NodeType.Hidden);
-        var node9 = new Node(9.ToString(), NodeType.Hidden);
+        var node8 = new DirectedNode(Guid.NewGuid(), 8.ToString(), NodeType.Hidden, [], []);
+        var node9 = new DirectedNode(Guid.NewGuid(), 9.ToString(), NodeType.Hidden, [], []);
 
-        var node10 = new Node(10.ToString(), NodeType.Hidden);
+        var node10 = new DirectedNode(Guid.NewGuid(), 10.ToString(), NodeType.Hidden, [], []);
 
-        var node11 = new Node(11.ToString(), NodeType.End);
+        var node11 = new DirectedNode(Guid.NewGuid(), 11.ToString(), NodeType.End, [], []);
 
         graph.AddNode(node1, [node4, node8]);
         graph.AddNode(node2, [node4]);
