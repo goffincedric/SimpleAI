@@ -1,4 +1,4 @@
-﻿using DirectedAcyclicGraph.Models;
+﻿using Graphs.Models;
 using MemoryPack;
 
 namespace CartPoleShared.DTOs;

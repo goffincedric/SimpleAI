@@ -1,8 +1,12 @@
-﻿namespace DirectedAcyclicGraph.Extensions;
+﻿namespace Graphs.Extensions;
 
 public static class ListExtensions
 {
-    public static T GetRandomEntry<T>(this List<T> values, Random? random, List<T>? exclude = null)
+    public static T GetRandomEntry<T>(
+        this ICollection<T> values,
+        Random? random,
+        List<T>? exclude = null
+    )
     {
         random ??= new Random();
         exclude ??= [];
@@ -15,7 +19,7 @@ public static class ListExtensions
     }
 
     public static T RemoveRandomEntry<T>(
-        this List<T> values,
+        this ICollection<T> values,
         Random? random,
         List<T>? exclude = null
     )

@@ -1,8 +1,8 @@
-﻿namespace DirectedAcyclicGraph.Models;
+﻿namespace Graphs.Models;
 
 public enum NodeType
 {
-    Start,
-    End,
+    Input,
+    Output,
     Hidden
 }

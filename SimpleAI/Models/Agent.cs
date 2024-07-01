@@ -1,12 +1,10 @@
-﻿using CartPoleShared.Graph;
-using CartPoleShared.Models.Graph;
-using DirectedAcyclicGraph.Models;
+﻿using Graphs.Models;
 
 namespace SimpleAI.Models;
 
-public class Agent(DirectedAcyclicGraph<WeightedNode> graph)
+public class Agent(DirectedAcyclicGraph graph)
 {
-    public DirectedAcyclicGraph<WeightedNode> Graph { get; } = graph;
+    public DirectedAcyclicGraph Graph { get; } = graph;
     public double Fitness { get; private set; }
 
     public double[] CalculateOutputValue(double[] state)
@@ -22,19 +20,15 @@ public class Agent(DirectedAcyclicGraph<WeightedNode> graph)
         {
             // Set inputValue
             var inputValue = 0d;
-            if (node.Type == NodeType.Start && node is IndexedNode inputNode)
+            if (node.Type == NodeType.Input && node is IndexedNode inputNode)
                 inputValue = state[inputNode.Index];
 
-            // Add output values multiplied with the edge weight to the output value
+            // Add output values multiplied with the edge weight to the input value
             if (node.Parents.Count > 0)
-                foreach (var parentNode in node.Parents)
+                foreach (var (parentNode, weight) in node.Parents)
                 {
-                    // Get edge weight and parent output value
-                    var weight = node.GetEdgeWeight(parentNode);
-                    var parentOutputValue = outputValues.GetValueOrDefault(
-                        (WeightedNode)parentNode,
-                        0
-                    );
+                    // Get parent output value
+                    var parentOutputValue = outputValues.GetValueOrDefault(parentNode, 0);
 
                     // Add weighted value
                     inputValue += parentOutputValue * weight;
@@ -43,7 +37,7 @@ public class Agent(DirectedAcyclicGraph<WeightedNode> graph)
             // Calculate output value and add to outputValues
             var outputValue = node.CalculateOutputValue(inputValue);
             outputValues[node] = outputValue;
-            if (node.Type == NodeType.End)
+            if (node.Type == NodeType.Output)
             {
                 var indexedNode = (IndexedNode)node;
                 endNodeOutputValues.Insert(indexedNode.Index, outputValue);

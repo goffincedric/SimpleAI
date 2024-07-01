@@ -1,13 +1,13 @@
 ﻿using CartPoleShared.DTOs;
-using CartPoleShared.Models.Graph;
-using DirectedAcyclicGraph.Models;
+using CartPoleShared.Functions;
+using Graphs.Models;
 using MemoryPack;
 
 namespace CartPoleShared.Extensions;
 
 public static class GraphExtensions
 {
-    public static void SaveGraph(this DirectedAcyclicGraph<WeightedNode> graph, string filePath)
+    public static void SaveGraph(this DirectedAcyclicGraph graph, string filePath)
     {
         // Check if path is a binary file
         if (Path.GetExtension(filePath) != ".bin")
@@ -36,12 +36,13 @@ public static class GraphExtensions
             .ToList();
 
         // Get list of weights
-        var edges = sortedNodes
+        var edges1 = sortedNodes
             .SelectMany(node =>
-                node.IncomingNodeWeights.Select(edge =>
-                    (From: node, To: (WeightedNode)edge.Key, Weight: edge.Value)
-                )
+                node.Parents.Select(edge => (From: edge.Key, To: node, Weight: edge.Value))
             )
+            .ToList();
+
+        var edges = edges1
             .Select(edge => new EdgeDto
             {
                 FromId = edge.From.Id,
@@ -55,13 +56,14 @@ public static class GraphExtensions
 
         // Save graphDto to file
         var serializedBytes = MemoryPackSerializer.Serialize(graphDto);
+        // Create file path directories if it does not exist already
+        Directory.CreateDirectory(
+            Path.GetDirectoryName(filePath) ?? throw new InvalidOperationException()
+        );
         File.WriteAllBytes(filePath, serializedBytes);
     }
 
-    public static DirectedAcyclicGraph<WeightedNode> LoadGraph(
-        this DirectedAcyclicGraph<WeightedNode> graph,
-        string filePath
-    )
+    public static DirectedAcyclicGraph LoadGraph(this DirectedAcyclicGraph graph, string filePath)
     {
         // Check if path is a binary file
         if (Path.GetExtension(filePath) != ".bin")
@@ -82,21 +84,23 @@ public static class GraphExtensions
             {
                 var node = nodeDto.StateIndex.HasValue
                     ? new IndexedNode(
+                        nodeDto.Id,
                         nodeDto.Label,
                         nodeDto.Type,
                         [],
                         [],
                         nodeDto.Bias,
-                        nodeDto.StateIndex.Value,
-                        nodeDto.Id
+                        ActivationFunctions.ResolveActivationFunction(nodeDto.Type),
+                        nodeDto.StateIndex.Value
                     )
                     : new WeightedNode(
+                        nodeDto.Id,
                         nodeDto.Label,
                         nodeDto.Type,
                         [],
                         [],
                         nodeDto.Bias,
-                        nodeDto.Id
+                        ActivationFunctions.ResolveActivationFunction(nodeDto.Type)
                     );
                 return (nodeDto.Id, node);
             })
@@ -114,8 +118,7 @@ public static class GraphExtensions
         {
             var fromNode = nodes.First(node => node.Id == edge.FromId).node;
             var toNode = nodes.First(node => node.Id == edge.ToId).node;
-            graph.AddEdge(fromNode, toNode);
-            toNode.SetEdgeWeight(fromNode, edge.Weight);
+            graph.AddEdge(fromNode, toNode, edge.Weight);
         }
 
         return graph;

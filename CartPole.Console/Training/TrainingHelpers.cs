@@ -1,8 +1,8 @@
-﻿using CartPoleShared.Graph;
-using CartPoleShared.Models.Graph;
-using DirectedAcyclicGraph.Extensions;
-using DirectedAcyclicGraph.Models;
-using SimpleAI.Models;
+﻿using System.Diagnostics;
+using CartPoleShared.Functions;
+using Graphs.Extensions;
+using Graphs.Functions;
+using Graphs.Models;
 
 namespace CartPoleConsole.Training;
 
@@ -10,19 +10,20 @@ public static class TrainingHelpers
 {
     public static class Selection
     {
-        public static List<DirectedAcyclicGraph<WeightedNode>> SelectTopPerformers(
-            IDictionary<DirectedAcyclicGraph<WeightedNode>, double> sortedGraphsByFitness,
+        public static List<DirectedAcyclicGraph> SelectTopPerformers(
+            IDictionary<DirectedAcyclicGraph, double> sortedGraphsByFitness,
             double topPerformersPercentage
         ) =>
             sortedGraphsByFitness
                 .OrderByDescending(pair => pair.Value)
+                .ThenBy(pair => pair.Key.NodeCount)
                 .Select(pair => (pair.Key, pair.Value))
                 .Take((int)(sortedGraphsByFitness.Count * topPerformersPercentage))
                 .Select(graph => graph.Item1)
                 .ToList();
 
-        public static List<DirectedAcyclicGraph<WeightedNode>> SelectRandomCollection(
-            List<DirectedAcyclicGraph<WeightedNode>> graphs,
+        public static List<DirectedAcyclicGraph> SelectRandomCollection(
+            List<DirectedAcyclicGraph> graphs,
             int amountToSelect
         )
         {
@@ -36,22 +37,39 @@ public static class TrainingHelpers
 
     public static class MutationHelpers
     {
-        public static List<DirectedAcyclicGraph<WeightedNode>> MutateGraphs(
-            List<DirectedAcyclicGraph<WeightedNode>> graphs
-        ) => graphs.Select(MutateGraph).ToList();
+        public static List<DirectedAcyclicGraph> MutateGraphs(List<DirectedAcyclicGraph> graphs) =>
+            graphs.Select(MutateGraph).ToList();
 
-        private static DirectedAcyclicGraph<WeightedNode> MutateGraph(
-            DirectedAcyclicGraph<WeightedNode> graph
-        )
+        private static DirectedAcyclicGraph MutateGraph(DirectedAcyclicGraph graph)
         {
             // Select random mutation
             var mutationChance = new Random().NextDouble();
 
-            // TODO: Changes to consider: Add mutation that doesn't mutate???
-            // 5% chance to add edge, 5% chance to remove edge, 2.5% chance to split edge, 2.5% chance to add node, 5% chance to remove node
-            if (mutationChance is >= 0 and < 0.05)
+            // // Works with default setup
+            // if (mutationChance is >= 0 and < 0.04)
+            //     return AddEdgeMutation(graph);
+            // // if (mutationChance is >= 0.05 and < 0.15)
+            // //     return RemoveEdgeMutation(graph);
+            // // if (mutationChance is >= 0.15 and < 0.2)
+            // //     return SplitEdgeMutation(graph);
+            // // if (mutationChance is >= 0.2 and < 0.25)
+            // //     return AddNodeMutation(graph);
+            // // if (mutationChance is >= 0.25 and < 0.40)
+            // //     return RemoveNodeMutation(graph);
+            // // if (mutationChance is >= 0.4 and < 0.7)
+            // //     return ChangeBiasMutation(graph);
+            // // return ChangeWeightMutation(graph);
+            //
+            // // TODO: Changes to consider: Add mutation that doesn't mutate???
+            // if (mutationChance is >= 0.04 and < 0.52)
+            //     return ChangeBiasMutation(graph);
+            // return ChangeWeightMutation(graph);
+
+
+            // Works with default setup
+            if (mutationChance is >= 0 and < 0.02)
                 return AddEdgeMutation(graph);
-            if (mutationChance is >= 0.05 and < 0.1)
+            if (mutationChance is >= 0.02 and < 0.1)
                 return RemoveEdgeMutation(graph);
             if (mutationChance is >= 0.1 and < 0.125)
                 return SplitEdgeMutation(graph);
@@ -60,8 +78,8 @@ public static class TrainingHelpers
             if (mutationChance is >= 0.15 and < 0.2)
                 return RemoveNodeMutation(graph);
 
-            // 40% chance to change bias, 40% chance to change weight
-            if (mutationChance is >= 0.2 and < 0.6)
+            // TODO: Changes to consider: Add mutation that doesn't mutate???
+            if (mutationChance is >= 0.2 and < 0.7)
                 return ChangeBiasMutation(graph);
             return ChangeWeightMutation(graph);
         }
@@ -69,24 +87,18 @@ public static class TrainingHelpers
         /// <summary>
         /// Adds a random edge between two nodes in the graph.
         /// </summary>
-        private static DirectedAcyclicGraph<WeightedNode> AddEdgeMutation(
-            DirectedAcyclicGraph<WeightedNode> graph
-        )
+        public static DirectedAcyclicGraph AddEdgeMutation(DirectedAcyclicGraph graph)
         {
             var isSuccess = graph.AddRandomEdge();
             if (!isSuccess)
                 return MutateGraph(graph);
-            // Add random weight to edge
-
             return graph;
         }
 
         /// <summary>
         /// Removes a random edge from the graph.
         /// </summary>
-        private static DirectedAcyclicGraph<WeightedNode> RemoveEdgeMutation(
-            DirectedAcyclicGraph<WeightedNode> graph
-        )
+        private static DirectedAcyclicGraph RemoveEdgeMutation(DirectedAcyclicGraph graph)
         {
             var isSuccess = graph.RemoveRandomEdge();
             if (!isSuccess)
@@ -94,37 +106,41 @@ public static class TrainingHelpers
             return graph;
         }
 
-        private static DirectedAcyclicGraph<WeightedNode> SplitEdgeMutation(
-            DirectedAcyclicGraph<WeightedNode> graph
-        )
+        private static DirectedAcyclicGraph SplitEdgeMutation(DirectedAcyclicGraph graph)
         {
-            var isSuccess = graph.SplitRandomEdge(
-                () => GraphFunctions.CreateHiddenNode("Split edge")
+            var newHiddenNode = GraphFunctions.CreateHiddenNode(
+                "Split edge",
+                ActivationFunctions.ResolveActivationFunction(NodeType.Hidden),
+                0
             );
+            var isSuccess = graph.SplitRandomEdge(() => newHiddenNode);
             if (!isSuccess)
                 return MutateGraph(graph);
             return graph;
         }
 
-        private static DirectedAcyclicGraph<WeightedNode> AddNodeMutation(
-            DirectedAcyclicGraph<WeightedNode> graph
-        )
+        private static DirectedAcyclicGraph AddNodeMutation(DirectedAcyclicGraph graph)
         {
-            // Changes to perform: Implement function to add a node by connecting two random nodes
+            var newHiddenNode = GraphFunctions.CreateHiddenNode(
+                "Random node",
+                ActivationFunctions.ResolveActivationFunction(NodeType.Hidden),
+                0
+            );
+            var isSuccess = graph.AddRandomNode(() => newHiddenNode);
+            if (!isSuccess)
+                return MutateGraph(graph);
             return graph;
         }
 
-        private static DirectedAcyclicGraph<WeightedNode> RemoveNodeMutation(
-            DirectedAcyclicGraph<WeightedNode> graph
-        )
+        private static DirectedAcyclicGraph RemoveNodeMutation(DirectedAcyclicGraph graph)
         {
-            // Changes to perform: Implement in graph
+            var isSuccess = graph.RemoveRandomNode();
+            if (!isSuccess)
+                return MutateGraph(graph);
             return graph;
         }
 
-        private static DirectedAcyclicGraph<WeightedNode> ChangeBiasMutation(
-            DirectedAcyclicGraph<WeightedNode> graph
-        )
+        private static DirectedAcyclicGraph ChangeBiasMutation(DirectedAcyclicGraph graph)
         {
             // Select random node from unsorted nodes
             var randomNode = graph.UnsortedNodes.ToList().GetRandomEntry(null);
@@ -132,20 +148,18 @@ public static class TrainingHelpers
             return graph;
         }
 
-        private static DirectedAcyclicGraph<WeightedNode> ChangeWeightMutation(
-            DirectedAcyclicGraph<WeightedNode> graph
-        )
+        private static DirectedAcyclicGraph ChangeWeightMutation(DirectedAcyclicGraph graph)
         {
-            if (graph.NodesWithIncomingEdges.Count == 0)
+            if (graph.NodesWithOutgoingEdges.Count == 0)
                 return MutateGraph(graph);
 
             // Select random node and random incoming node
             var random = new Random();
-            var nodePair = graph.NodesWithIncomingEdges.ToList().GetRandomEntry(random);
-            var randomIncomingNode = nodePair.Value.ToList().GetRandomEntry(random);
+            var from = graph.NodesWithOutgoingEdges.GetRandomEntry(random);
+            var to = from.Children.GetRandomEntry(random);
 
             // Mutate the edge weight
-            GraphFunctions.UpdateIncomingNodeWeight(nodePair.Key, randomIncomingNode);
+            GraphFunctions.UpdateIncomingNodeWeight(from, to);
 
             return graph;
         }

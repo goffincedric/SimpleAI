@@ -1,13 +1,16 @@
-﻿using System.Collections.Generic;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Threading;
 using System.Windows.Forms;
 using CartPolePhysics.SinglePole.DoublePrecision;
 using CartPoleShared.Constants;
-using CartPoleShared.Models;
+using CartPoleShared.Extensions;
+using CartPoleShared.Functions;
+using CartPoleShared.Helpers;
 using CartPoleShared.Models.Environment;
 using CartPoleWinForms.Controls;
-using DirectedAcyclicGraph.Models;
+using Graphs.Functions;
+using Graphs.Models;
+using SimpleAI.Models;
 
 namespace CartPoleWinForms.Views;
 
@@ -16,7 +19,8 @@ public class RenderForm : Form
     private readonly CartPole _cartPole;
     private Stopwatch PhysicsStopwatch { get; set; }
     private CartSinglePolePhysicsRK4 Physics { get; set; }
-    private const int PhysicsUpdateTargetMs = 1000 / 60;
+
+    private double ForceMagnitude { get; set; } = 0;
 
     public RenderForm()
     {
@@ -32,32 +36,40 @@ public class RenderForm : Form
         FormBorderStyle = FormBorderStyle.FixedSingle;
 
         // Add RenderControl to window and make it fullscreen
-        _cartPole = new CartPole(
-            0,
-            0.5f,
-            0.08f,
-            0.02f,
-            1,
-            AngleConstants.Radians.Up - 0.01,
-            // AngleConstants.Radians.Down,
-            14
+        _cartPole = EnvironmentHelpers.CreateNewCartPole(
+            // AngleConstants.Radians.Up - 0.01
+            EnvironmentConstants.CartPoleDimensions.CartStartingPosition,
+            AngleConstants.Radians.Down
         );
 
-        var randomGraph = GetRandomGraph();
-        var (sortedLayers, _) = randomGraph.GetTopologicallySortedNodes();
+        // Load graph
+        var graph = new DirectedAcyclicGraph();
+        graph.LoadGraph(
+            "C:\\Users\\Cedric\\Personal\\Development\\.NET\\CartPoleAI\\CartPole.Console\\bin\\Debug\\net8.0\\V1\\graph-0.bin"
+        );
+        var (sortedLayers, _) = graph.GetTopologicallySortedNodes();
 
-        Controls.Add(new RenderControl(_cartPole, sortedLayers as List<List<DirectedNode>>));
+        Controls.Add(new RenderControl(_cartPole, sortedLayers));
 
-        StartPhysics();
+        // Register keypress handlers
+        KeyPreview = true;
+        KeyDown += Handle_KeyDown;
+        KeyUp += Handle_KeyUp;
+
+        StartPhysics(graph);
+
+        /**
+         * TODO: Start training in the background. When no animation is running, take the best performing graph and
+         * run it for 10 seconds. Keep doing this until training is stopped.
+         */
     }
 
-    private void StartPhysics()
+    private void StartPhysics(DirectedAcyclicGraph? graph = null)
     {
         // Initialize Physics with initial CartPole state
-        Physics = new CartSinglePolePhysicsRK4(
-            (double)PhysicsUpdateTargetMs / 1000,
-            _cartPole.GetState()
-        );
+        Physics = EnvironmentHelpers.CreatePhysics(_cartPole);
+        // Initialize agent if necessary
+        var agent = graph != null ? new Agent(graph) : null;
 
         // Start the physics loop in a separate thread
         PhysicsStopwatch = new Stopwatch();
@@ -66,10 +78,10 @@ public class RenderForm : Form
             while (true)
             {
                 // Only trigger a repaint if enough time has passed for the next physics update
-                if (PhysicsStopwatch.ElapsedMilliseconds < PhysicsUpdateTargetMs)
+                if (PhysicsStopwatch.ElapsedMilliseconds < EnvironmentConstants.Physics.TimeStepMs)
                     continue; // 100Hz
                 PhysicsStopwatch.Restart();
-                UpdatePhysics();
+                UpdatePhysics(agent);
             }
         })
         {
@@ -78,50 +90,142 @@ public class RenderForm : Form
         PhysicsStopwatch.Start();
     }
 
-    private void UpdatePhysics()
+    private void UpdatePhysics(Agent? agent)
     {
+        // Calculate force to apply to cart
+        var force = agent?.CalculateOutputValue(Physics.State)[0] ?? 0;
         // Update physics
-        Physics.Update(0);
+        Physics.Update(ForceMagnitude != 0 ? ForceMagnitude : force);
         _cartPole.SetState(Physics.State);
     }
 
-    private DirectedAcyclicGraph<DirectedNode> GetRandomGraph()
+    private DirectedAcyclicGraph GetRandomGraph()
     {
-        var graph = new DirectedAcyclicGraph<DirectedNode>();
-        graph.AddNode(new DirectedNode("Input 1", NodeType.Start), []);
-        graph.AddNode(new DirectedNode("Input 2", NodeType.Start), []);
-        graph.AddNode(new DirectedNode("Input 3", NodeType.Start), []);
-        graph.AddNode(new DirectedNode("Input 4", NodeType.Start), []);
-        graph.AddNode(new DirectedNode("Output 1", NodeType.End), []);
-        graph.AddNode(new DirectedNode("Output 2", NodeType.End), []);
+        var graph = new DirectedAcyclicGraph();
+        graph.AddNode(
+            GraphFunctions.CreateInputNode(
+                "Input 1",
+                0,
+                ActivationFunctions.ResolveActivationFunction(NodeType.Input)
+            ),
+            []
+        );
+        graph.AddNode(
+            GraphFunctions.CreateInputNode(
+                "Input 2",
+                1,
+                ActivationFunctions.ResolveActivationFunction(NodeType.Input)
+            ),
+            []
+        );
+        graph.AddNode(
+            GraphFunctions.CreateInputNode(
+                "Input 3",
+                2,
+                ActivationFunctions.ResolveActivationFunction(NodeType.Input)
+            ),
+            []
+        );
+        graph.AddNode(
+            GraphFunctions.CreateInputNode(
+                "Input 4",
+                3,
+                ActivationFunctions.ResolveActivationFunction(NodeType.Input)
+            ),
+            []
+        );
+        graph.AddNode(
+            GraphFunctions.CreateOutputNode(
+                "Output 1",
+                0,
+                ActivationFunctions.ResolveActivationFunction(NodeType.Output)
+            ),
+            []
+        );
+        graph.AddNode(
+            GraphFunctions.CreateOutputNode(
+                "Output 2",
+                1,
+                ActivationFunctions.ResolveActivationFunction(NodeType.Output)
+            ),
+            []
+        );
+
+        // Add 5 random hidden nodes
+        for (var i = 0; i < 5; i++)
+            graph.AddNode(
+                GraphFunctions.CreateHiddenNode(
+                    $"Hidden {i}",
+                    ActivationFunctions.ResolveActivationFunction(NodeType.Hidden)
+                ),
+                []
+            );
 
         // Add edges and split random edges 3 times
         for (var i = 0; i < 3; i++)
         {
-            // Add five random edges
-            for (var j = 0; j < 2; j++)
+            // Add three random edges
+            for (var j = 0; j < 3; j++)
                 graph.AddRandomEdge();
-            // split five random edges
+            // split two random edges
             for (var j = 0; j < 2; j++)
-                graph.SplitRandomEdge(() => new DirectedNode($"{i}_{j}", NodeType.Hidden));
+                graph.SplitRandomEdge(
+                    () =>
+                        GraphFunctions.CreateHiddenNode(
+                            $"{i}_{j}",
+                            ActivationFunctions.ResolveActivationFunction(NodeType.Hidden)
+                        )
+                );
         }
 
         return graph;
     }
 
-    private DirectedAcyclicGraph<DirectedNode> GetTestGraph()
+    private DirectedAcyclicGraph GetTestGraph()
     {
-        var graph = new DirectedAcyclicGraph<DirectedNode>();
+        var graph = new DirectedAcyclicGraph();
 
-        var node1 = new DirectedNode(1.ToString(), NodeType.Start);
-        var node2 = new DirectedNode(2.ToString(), NodeType.Start);
-        var node3 = new DirectedNode(3.ToString(), NodeType.Start);
-        var node4 = new DirectedNode(4.ToString(), NodeType.Hidden);
-        var node5 = new DirectedNode(5.ToString(), NodeType.Hidden);
-        var node6 = new DirectedNode(6.ToString(), NodeType.Hidden);
-        var node7 = new DirectedNode(7.ToString(), NodeType.Hidden);
-        var node8 = new DirectedNode(8.ToString(), NodeType.End);
-        var node9 = new DirectedNode(9.ToString(), NodeType.End);
+        var node1 = GraphFunctions.CreateInputNode(
+            1.ToString(),
+            0,
+            ActivationFunctions.ResolveActivationFunction(NodeType.Input)
+        );
+        var node2 = GraphFunctions.CreateInputNode(
+            2.ToString(),
+            1,
+            ActivationFunctions.ResolveActivationFunction(NodeType.Input)
+        );
+        var node3 = GraphFunctions.CreateInputNode(
+            3.ToString(),
+            2,
+            ActivationFunctions.ResolveActivationFunction(NodeType.Input)
+        );
+        var node4 = GraphFunctions.CreateHiddenNode(
+            4.ToString(),
+            ActivationFunctions.ResolveActivationFunction(NodeType.Hidden)
+        );
+        var node5 = GraphFunctions.CreateHiddenNode(
+            5.ToString(),
+            ActivationFunctions.ResolveActivationFunction(NodeType.Hidden)
+        );
+        var node6 = GraphFunctions.CreateHiddenNode(
+            6.ToString(),
+            ActivationFunctions.ResolveActivationFunction(NodeType.Hidden)
+        );
+        var node7 = GraphFunctions.CreateHiddenNode(
+            7.ToString(),
+            ActivationFunctions.ResolveActivationFunction(NodeType.Hidden)
+        );
+        var node8 = GraphFunctions.CreateOutputNode(
+            8.ToString(),
+            0,
+            ActivationFunctions.ResolveActivationFunction(NodeType.Output)
+        );
+        var node9 = GraphFunctions.CreateOutputNode(
+            9.ToString(),
+            1,
+            ActivationFunctions.ResolveActivationFunction(NodeType.Output)
+        );
 
         graph.AddNode(node1, [node5, node4]);
         graph.AddNode(node2, [node4, node6]);
@@ -133,4 +237,43 @@ public class RenderForm : Form
 
         return graph;
     }
+
+    #region Key press handlers
+
+    private void Handle_KeyDown(object sender, KeyEventArgs e)
+    {
+        const int forceMagnitude = 10; // Adjust this value to your needs
+
+        switch (e.KeyCode)
+        {
+            case Keys.Left:
+                ForceMagnitude = -forceMagnitude; // Apply force to the left
+                break;
+            case Keys.Right:
+                ForceMagnitude = forceMagnitude; // Apply force to the right
+                break;
+        }
+    }
+
+    private void Handle_KeyUp(object sender, KeyEventArgs e)
+    {
+        switch (e.KeyCode)
+        {
+            case Keys.Left:
+            case Keys.Right:
+                ForceMagnitude = 0; // Stop applying force
+                break;
+        }
+    }
+
+    protected override bool IsInputKey(Keys keyData)
+    {
+        return keyData switch
+        {
+            Keys.Left or Keys.Right => true,
+            _ => base.IsInputKey(keyData)
+        };
+    }
+
+    #endregion
 }

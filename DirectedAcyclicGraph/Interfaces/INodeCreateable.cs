@@ -1,9 +1,10 @@
-﻿using DirectedAcyclicGraph.Models;
+﻿using Graphs.Models;
 
-namespace DirectedAcyclicGraph.Interfaces;
+namespace Graphs.Interfaces;
 
-public interface INodeCreatable<TNode>
-    where TNode : DirectedNode
+public interface INodeCreatable<TNode, TEdgeNode>
+    where TNode : WeightedNode
+    where TEdgeNode : WeightedNode
 {
-    TNode CloneNode(TNode node, HashSet<TNode> parents, HashSet<TNode> children);
+    TNode CloneNode(TNode node, Dictionary<TEdgeNode, double> parents, HashSet<TEdgeNode> children);
 }

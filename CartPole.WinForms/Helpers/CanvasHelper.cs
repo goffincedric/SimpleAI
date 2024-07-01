@@ -4,7 +4,7 @@ using System.Linq;
 using CartPoleShared.Models;
 using CartPoleShared.Models.Environment;
 using CartPoleWinForms.Controls;
-using DirectedAcyclicGraph.Models;
+using Graphs.Models;
 using SkiaSharp;
 
 namespace CartPoleWinForms.Helpers;
@@ -40,7 +40,7 @@ public static class CanvasHelper
         private static SKColor PoleColor { get; set; } = new(178, 149, 91);
         private static SKColor TrackColor { get; set; } = SKColors.Black;
 
-        public static void DrawCartTrack(RenderControl control, SKCanvas canvas)
+        public static void DrawCartTrack(RenderControl control, Track track, SKCanvas canvas)
         {
             // Move to center of control
             canvas.Save();
@@ -49,9 +49,13 @@ public static class CanvasHelper
             // Draw a horizontal line as the track of the CartPole
             var linePaint = new SKPaint { Color = TrackColor, IsAntialias = true };
             canvas.DrawRect(
-                ConvertMetersToPixels((float)control.CartPole.Track.Length / 2 / -2),
+                ConvertMetersToPixels(
+                    (float)control.CartPole.Track.Length / 2 * -1,
+                    track,
+                    control
+                ),
                 CartPoleYPos - 1,
-                ConvertMetersToPixels((float)control.CartPole.Track.Length / 2),
+                ConvertMetersToPixels((float)control.CartPole.Track.Length, track, control),
                 2,
                 linePaint
             );
@@ -67,56 +71,72 @@ public static class CanvasHelper
             canvas.Translate((float)control.Width / 2, (float)control.Height / 2);
 
             // Draw the cart
-            DrawCart(control.CartPole, canvas);
+            DrawCart(control.CartPole, control, canvas);
 
             // Draw the joint
-            DrawJoint(control.CartPole, canvas);
+            DrawJoint(control.CartPole, control, canvas);
 
             // Draw the pole
-            DrawPole(control.CartPole, canvas);
+            DrawPole(control.CartPole, control, canvas);
 
             // Save the canvas state and revert translation
             canvas.Restore();
         }
 
-        private static void DrawCart(CartPole cartPole, SKCanvas canvas)
+        private static void DrawCart(CartPole cartPole, RenderControl control, SKCanvas canvas)
         {
             var cartPaint = new SKPaint { Color = CartColor, IsAntialias = true };
-            var cartRect = GetRectangle(cartPole.X, cartPole.Cart.Width, cartPole.Cart.Height); // rectangle dimensions in meters
+            var cartRect = GetRectangle(
+                cartPole.Cart.X,
+                cartPole.Cart.Width,
+                cartPole.Cart.Height,
+                cartPole.Track,
+                control
+            ); // rectangle dimensions in meters
             canvas.DrawRect(cartRect, cartPaint); // draw the cart
         }
 
-        private static void DrawJoint(CartPole cartPole, SKCanvas canvas)
+        private static void DrawJoint(CartPole cartPole, RenderControl control, SKCanvas canvas)
         {
             var jointPaint = new SKPaint { Color = JointColor, IsAntialias = true };
-            var jointPoint = new SKPoint(ConvertMetersToPixels((float)cartPole.X), CartPoleYPos); // joint point
-            canvas.DrawCircle(jointPoint, ConvertMetersToPixels(cartPole.Pole.Width), jointPaint); // draw the joint
+            var jointPoint = new SKPoint(
+                ConvertMetersToPixels((float)cartPole.Cart.X, cartPole.Track, control),
+                CartPoleYPos
+            ); // joint point
+            canvas.DrawCircle(
+                jointPoint,
+                ConvertMetersToPixels(cartPole.Pole.Width, cartPole.Track, control),
+                jointPaint
+            ); // draw the joint
         }
 
-        private static void DrawPole(CartPole cartPole, SKCanvas canvas)
+        private static void DrawPole(CartPole cartPole, RenderControl control, SKCanvas canvas)
         {
             var polePaint = new SKPaint { Color = PoleColor, IsAntialias = true };
             var poleRect = GetRectangle(
-                cartPole.X,
+                cartPole.Cart.X,
                 cartPole.Pole.Width,
                 cartPole.Pole.Height,
+                cartPole.Track,
+                control,
                 true
             ); // rectangle dimensions in meters
             canvas.Save();
             canvas.RotateDegrees(
                 (float)(cartPole.Pole.AngleRadians * (180 / Math.PI)),
-                ConvertMetersToPixels((float)cartPole.X),
+                ConvertMetersToPixels((float)cartPole.Cart.X, cartPole.Track, control),
                 CartPoleYPos
             ); // rotate around the center of the rectangle
             canvas.DrawRect(poleRect, polePaint); // draw the pole
             // Draw a circle on top of the pole in the same color as the joint
             var ballPoint = new SKPoint(
-                ConvertMetersToPixels((float)cartPole.X),
-                CartPoleYPos - ConvertMetersToPixels(cartPole.Pole.Height / 2)
+                ConvertMetersToPixels((float)cartPole.Cart.X, cartPole.Track, control),
+                CartPoleYPos
+                    - ConvertMetersToPixels(cartPole.Pole.Height / 2, cartPole.Track, control)
             ); // ball point
             canvas.DrawCircle(
                 ballPoint,
-                ConvertMetersToPixels(cartPole.Pole.Width * 2),
+                ConvertMetersToPixels(cartPole.Pole.Width * 2, cartPole.Track, control),
                 new SKPaint { Color = new SKColor(171, 144, 199), IsAntialias = true }
             ); // draw the ball
             canvas.Restore();
@@ -128,32 +148,41 @@ public static class CanvasHelper
         /// <param name="x">X-axis in meters</param>
         /// <param name="width">Width in meters</param>
         /// <param name="height">Height in meters</param>
+        /// <param name="track"></param>
+        /// <param name="control"></param>
         /// <param name="onlyShowTopHalf">Flag indicating whether to only show top half of the rectangle</param>
         /// <returns></returns>
         private static SKRect GetRectangle(
             double x,
             float width,
             float height,
+            Track track,
+            RenderControl control,
             bool onlyShowTopHalf = false
         )
         {
-            var left = ConvertMetersToPixels((float)x - width / 2);
-            var top = CartPoleYPos - ConvertMetersToPixels(height / 2);
-            var right = ConvertMetersToPixels((float)x + width / 2);
+            var left = ConvertMetersToPixels((float)x - width / 2, track, control);
+            var top = CartPoleYPos - ConvertMetersToPixels(height / 2, track, control);
+            var right = ConvertMetersToPixels((float)x + width / 2, track, control);
             float bottom;
             if (onlyShowTopHalf)
                 bottom = CartPoleYPos;
             else
-                bottom = CartPoleYPos + ConvertMetersToPixels(height / 2);
+                bottom = CartPoleYPos + ConvertMetersToPixels(height / 2, track, control);
 
             return new SKRect(left, top, right, bottom);
         }
 
         /// <summary>
-        /// Method that converts the meters to coordinates (x or y), to make 1 meter equal 200 pixels on screen.
+        /// Method that converts the meters to coordinates (x or y). Draws the entire track, with 50px of paddling left and right of the track
         /// </summary>
         /// <returns></returns>
-        private static float ConvertMetersToPixels(float meters) => meters * 200;
+        private static float ConvertMetersToPixels(float meters, Track track, RenderControl control)
+        {
+            var trackWidth = control.Width - 100; // 50px padding on both sides
+            var pixelsPerMeter = trackWidth / (float)track.Length;
+            return meters * pixelsPerMeter;
+        }
     }
 
     public static class AIDrawer
@@ -210,7 +239,7 @@ public static class CanvasHelper
         /// <param name="canvas"></param>
         /// <param name="backgroundHeight"></param>
         private static void DrawNodes(
-            List<List<DirectedNode>> nodes,
+            List<List<WeightedNode>> nodes,
             float backgroundHeight,
             SKCanvas canvas
         )
@@ -239,7 +268,7 @@ public static class CanvasHelper
         }
 
         private static void DrawEdges(
-            List<List<DirectedNode>> nodes,
+            List<List<WeightedNode>> nodes,
             int backgroundHeight,
             SKCanvas canvas
         )
@@ -269,6 +298,8 @@ public static class CanvasHelper
                     {
                         // Find the layer the child node belongs to
                         var childLayerIndex = nodes.FindIndex(layer => layer.Contains(childNode));
+                        if (childLayerIndex == -1)
+                            continue; // If not found, must be detached node
                         var childNodeLayer = nodes[childLayerIndex];
                         var childNodeIndex = childNodeLayer.IndexOf(childNode);
 

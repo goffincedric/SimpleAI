@@ -5,7 +5,7 @@ using System.Windows.Forms;
 using CartPoleShared.Models;
 using CartPoleShared.Models.Environment;
 using CartPoleWinForms.Helpers;
-using DirectedAcyclicGraph.Models;
+using Graphs.Models;
 using SkiaSharp;
 using SkiaSharp.Views.Desktop;
 
@@ -14,7 +14,7 @@ namespace CartPoleWinForms.Controls;
 public sealed class RenderControl : SKGLControl
 {
     public readonly CartPole CartPole;
-    public List<List<DirectedNode>> SortedLayers { get; private set; }
+    public List<List<WeightedNode>> SortedLayers { get; private set; }
 
     private readonly Stopwatch _stopwatch = new();
     private readonly Stopwatch _rotationStopwatch = new();
@@ -23,7 +23,7 @@ public sealed class RenderControl : SKGLControl
     private double _fps = TargetFrameRate;
     private int _frameCount;
 
-    public RenderControl(CartPole cartPole, List<List<DirectedNode>> sortedLayers)
+    public RenderControl(CartPole cartPole, List<List<WeightedNode>> sortedLayers)
     {
         CartPole = cartPole;
         SortedLayers = sortedLayers;
@@ -53,7 +53,7 @@ public sealed class RenderControl : SKGLControl
         }.Start(); // Run the thread in the background so it doesn't prevent the application from exiting
     }
 
-    public void SetSortedLayers(List<List<DirectedNode>> sortedLayers) =>
+    public void SetSortedLayers(List<List<WeightedNode>> sortedLayers) =>
         SortedLayers = sortedLayers;
 
     protected override void OnPaintSurface(SKPaintGLSurfaceEventArgs e)
@@ -70,7 +70,7 @@ public sealed class RenderControl : SKGLControl
         CanvasHelper.DrawFpsCounter(_fps, canvas);
 
         // Draw the cart track
-        CanvasHelper.CartPoleDrawer.DrawCartTrack(this, canvas);
+        CanvasHelper.CartPoleDrawer.DrawCartTrack(this, CartPole.Track, canvas);
 
         // Draw the CartPole
         CanvasHelper.CartPoleDrawer.DrawCartPole(this, canvas);
